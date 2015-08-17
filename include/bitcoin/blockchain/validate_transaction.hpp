@@ -90,7 +90,7 @@ private:
     blockchain& blockchain_;
     const chain::transaction tx_;
     const pool_buffer& pool_;
-    sequencer& strand_;
+    sequencer& sequence_;
 
     const hash_digest tx_hash_;
     size_t last_block_height_;

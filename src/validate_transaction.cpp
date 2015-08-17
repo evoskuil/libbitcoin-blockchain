@@ -49,8 +49,8 @@ validate_transaction::validate_transaction(blockchain& chain,
   : blockchain_(chain),
     tx_(tx),
     pool_(pool),
-    strand_(strand),
-    tx_hash_(tx.hash())
+    sequence_(strand),
+    tx_hash_(hash_transaction(tx))
 {
 }
 
@@ -66,7 +66,7 @@ void validate_transaction::start(validate_handler handle_validate)
 
     // Check for duplicates in the blockchain.
     blockchain_.fetch_transaction(tx_hash_,
-        strand_.wrap(&validate_transaction::handle_duplicate_check,
+        sequence_.sync(&validate_transaction::handle_duplicate_check,
             shared_from_this(), _1));
 }
 
@@ -114,7 +114,7 @@ void validate_transaction::handle_duplicate_check(
 
     // Check inputs, we already know it is not a coinbase tx.
     blockchain_.fetch_last_height(
-        strand_.wrap(&validate_transaction::set_last_height,
+        sequence_.sync(&validate_transaction::set_last_height,
             shared_from_this(), _1, _2));
 }
 
@@ -198,7 +198,7 @@ void validate_transaction::next_previous_transaction()
     // Needed for checking the coinbase maturity.
     blockchain_.fetch_transaction_index(
         tx_.inputs[current_input_].previous_output.hash,
-        strand_.wrap(&validate_transaction::previous_tx_index,
+        sequence_.sync(&validate_transaction::previous_tx_index,
             shared_from_this(), _1, _2));
 }
 
@@ -216,7 +216,7 @@ void validate_transaction::previous_tx_index(const std::error_code& ec,
     
     // Now fetch actual transaction body
     blockchain_.fetch_transaction(prev_tx_hash,
-        strand_.wrap(&validate_transaction::handle_previous_tx,
+        sequence_.sync(&validate_transaction::handle_previous_tx,
             shared_from_this(), _1, _2, parent_height));
 }
 
@@ -260,7 +260,7 @@ void validate_transaction::handle_previous_tx(const std::error_code& ec,
 
     // Search for double spends...
     blockchain_.fetch_spend(tx_.inputs[current_input_].previous_output,
-        strand_.wrap(&validate_transaction::check_double_spend,
+        sequence_.sync(&validate_transaction::check_double_spend,
             shared_from_this(), _1));
 }
 

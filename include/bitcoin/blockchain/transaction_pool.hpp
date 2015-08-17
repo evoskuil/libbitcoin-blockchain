@@ -213,7 +213,7 @@ private:
     void try_delete_tx(const hash_digest& hash);
     bool stopped();
 
-    sequencer strand_;
+    sequencer sequence_;
     blockchain& blockchain_;
     pool_buffer buffer_;
     bool stopped_;

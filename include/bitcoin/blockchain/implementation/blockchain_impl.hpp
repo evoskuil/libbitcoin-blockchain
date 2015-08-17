@@ -141,7 +141,7 @@ private:
     bool stopped();
 
     // Queue for writes to the blockchain.
-    sequencer strand_;
+    sequencer sequence_;
 
     // Lock the database directory with a file lock.
     boost::interprocess::file_lock flock_;

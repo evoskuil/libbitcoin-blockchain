@@ -51,7 +51,7 @@ static file_lock init_lock(const std::string& prefix)
 blockchain_impl::blockchain_impl(threadpool& pool, const std::string& prefix,
     const db_active_heights &active_heights, size_t orphan_capacity,
     const config::checkpoint::list& checks)
-  : sequence_(pool),
+  : dispatch_(pool),
     flock_(init_lock(prefix)),
     seqlock_(0),
     stopped_(true),
@@ -108,7 +108,7 @@ void blockchain_impl::start_write()
 void blockchain_impl::store(const chain::block& block,
     store_block_handler handle_store)
 {
-    sequence_.randomly_queue(
+    dispatch_.randomly_queue(
         std::bind(&blockchain_impl::do_store,
             this, block, handle_store));
 }
@@ -151,7 +151,7 @@ void blockchain_impl::import(const chain::block& block,
         interface_.push(block);
         stop_write(handle_import, error::success);
     };
-    sequence_.randomly_queue(do_import);
+    dispatch_.randomly_queue(do_import);
 }
 
 void blockchain_impl::fetch(perform_read_functor perform_read)
@@ -171,7 +171,7 @@ void blockchain_impl::fetch(perform_read_functor perform_read)
     };
 
     // Initiate async read operation.
-    sequence_.async(do_read);
+    dispatch_.async(do_read);
 }
 
 void blockchain_impl::fetch_block_header(uint64_t height,

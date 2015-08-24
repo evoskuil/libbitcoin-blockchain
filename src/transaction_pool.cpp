@@ -37,7 +37,7 @@ using std::placeholders::_4;
 
 transaction_pool::transaction_pool(threadpool& pool, blockchain& chain,
     size_t capacity)
-  : sequence_(pool), blockchain_(chain), buffer_(capacity), stopped_(true)
+  : dispatch_(pool), blockchain_(chain), buffer_(capacity), stopped_(true)
 {
 }
 
@@ -87,7 +87,7 @@ bool transaction_pool::stopped()
 void transaction_pool::validate(const chain::transaction& tx,
     validate_handler handle_validate)
 {
-    sequence_.queue(&transaction_pool::do_validate,
+    dispatch_.queue(&transaction_pool::do_validate,
         this, tx, handle_validate);
 }
 void transaction_pool::do_validate(const chain::transaction& tx,
@@ -102,11 +102,11 @@ void transaction_pool::do_validate(const chain::transaction& tx,
     // This must be allocated as a shared pointer reference in order for
     // validate_transaction::start to create a second reference.
     const auto validate = std::make_shared<validate_transaction>(
-        blockchain_, tx, buffer_, sequence_);
+        blockchain_, tx, buffer_, dispatch_);
 
     validate->start(
-        sequence_.sync(&transaction_pool::validation_complete,
-            this, _1, _2, hash_transaction(tx), handle_validate));
+        dispatch_.sync(&transaction_pool::validation_complete,
+            this, _1, _2, tx.hash(), handle_validate));
 }
 
 void transaction_pool::validation_complete(const std::error_code& ec,
@@ -215,7 +215,7 @@ void transaction_pool::fetch(const hash_digest& transaction_hash,
         handle_fetch(error::success, it->tx);
     };
 
-    sequence_.queue(tx_fetcher);
+    dispatch_.queue(tx_fetcher);
 }
 
 void transaction_pool::exists(const hash_digest& transaction_hash,
@@ -232,7 +232,7 @@ void transaction_pool::exists(const hash_digest& transaction_hash,
         handle_exists(error::success, tx_exists(transaction_hash));
     };
 
-    sequence_.queue(get_existence);
+    dispatch_.queue(get_existence);
 }
 
 void transaction_pool::reorganize(const std::error_code& ec,
@@ -261,11 +261,11 @@ void transaction_pool::reorganize(const std::error_code& ec,
         << ") replace blocks (" << replaced_blocks.size() << ")";
 
     if (replaced_blocks.empty())
-        sequence_.queue(
+        dispatch_.queue(
             std::bind(&transaction_pool::delete_confirmed,
                 this, new_blocks));
     else
-        sequence_.queue(
+        dispatch_.queue(
             std::bind(&transaction_pool::invalidate_pool,
                 this));
 

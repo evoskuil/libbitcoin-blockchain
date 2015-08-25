@@ -30,6 +30,8 @@
 #include <bitcoin/blockchain/orphans_pool.hpp>
 #include <bitcoin/blockchain/simple_chain.hpp>
 
+INITIALIZE_TRACK(bc::blockchain::organizer::reorganize_subscriber);
+
 namespace libbitcoin {
 namespace blockchain {
 
@@ -37,7 +39,8 @@ organizer::organizer(threadpool& pool, orphans_pool& orphans,
     simple_chain& chain)
   : orphans_(orphans),
     chain_(chain),
-    subscriber_(std::make_shared<reorganize_subscriber>(pool)),
+    subscriber_(std::make_shared<reorganize_subscriber>(pool, "organizer",
+        LOG_BLOCKCHAIN)),
     stopped_(true)
 {
 }

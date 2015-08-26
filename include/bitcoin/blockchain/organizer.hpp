@@ -87,7 +87,7 @@ private:
 
     orphans_pool& orphans_;
     simple_chain& chain_;
-    reorganize_subscriber::ptr subscriber_;
+    reorganize_subscriber::ptr reorganize_subscriber_;
     block_detail_list process_queue_;
     bool stopped_;
 };

@@ -30,7 +30,7 @@
 #include <bitcoin/blockchain/orphans_pool.hpp>
 #include <bitcoin/blockchain/simple_chain.hpp>
 
-INITIALIZE_TRACK(bc::blockchain::organizer::reorganize_subscriber);
+INITIALIZE_TRACK(bc::blockchain::organizer::reorganize_subscriber)
 
 namespace libbitcoin {
 namespace blockchain {
@@ -39,8 +39,7 @@ organizer::organizer(threadpool& pool, orphans_pool& orphans,
     simple_chain& chain)
   : orphans_(orphans),
     chain_(chain),
-    subscriber_(std::make_shared<reorganize_subscriber>(pool, "organizer",
-        LOG_BLOCKCHAIN)),
+    reorganize_subscriber_(MAKE_SUBSCRIBER(reorganize, pool, LOG_BLOCKCHAIN)),
     stopped_(true)
 {
 }
@@ -225,19 +224,20 @@ void organizer::notify_reorganize(size_t fork_point,
     std::transform(replaced_chain.begin(), replaced_chain.end(),
         replacements.begin(), to_raw_pointer);
 
-    subscriber_->relay(error::success, fork_point, arrivals, replacements);
+    reorganize_subscriber_->relay(error::success, fork_point, arrivals,
+        replacements);
 }
 
 void organizer::subscribe_reorganize(
     blockchain::reorganize_handler handle_reorganize)
 {
-    subscriber_->subscribe(handle_reorganize);
+    reorganize_subscriber_->subscribe(handle_reorganize);
 }
 
 void organizer::notify_stop()
 {
     static const uint64_t fork_point = 0;
-    subscriber_->relay(error::service_stopped, fork_point,
+    reorganize_subscriber_->relay(error::service_stopped, fork_point,
         blockchain::block_list(), blockchain::block_list());
 }
 

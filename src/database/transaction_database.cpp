@@ -118,7 +118,7 @@ void transaction_database::store(
 {
     // Write block data.
     const hash_digest key = tx.hash();
-    const size_t value_size = 4 + 4 + tx.satoshi_size();
+    const size_t value_size = 4 + 4 + tx.serialized_size();
     auto write = [&info, &tx](uint8_t* data)
     {
         auto serial = make_serializer(data);

@@ -37,6 +37,7 @@
 namespace libbitcoin {
 namespace blockchain {
 
+using std::placeholders::_1;
 using boost::posix_time::ptime;
 using boost::posix_time::from_time_t;
 using boost::posix_time::second_clock;
@@ -68,17 +69,22 @@ constexpr uint64_t target_spacing = 10 * 60;
 constexpr uint64_t readjustment_interval = target_timespan / target_spacing;
 
 // To improve readability.
-#define RETURN_IF_STOPPED() \
+#define RETURN_IF_STOPPED(callback) \
 if (stopped()) \
-    return error::service_stopped
+{ \
+    callback(error::service_stopped); \
+    return; \
+}
 
 // The nullptr option is for backward compatibility only.
-validate_block::validate_block(size_t height, const chain::block& block,
-    const config::checkpoint::list& checks, stopped_callback callback)
+validate_block::validate_block(threadpool& pool, size_t height, 
+    const chain::block& block, const config::checkpoint::list& checks,
+    stopped_callback callback)
   : height_(height),
     current_block_(block),
     checkpoints_(checks),
-    stop_callback_(callback == nullptr ? [](){ return false; } : callback)
+    stop_callback_(callback == nullptr ? [](){ return false; } : callback),
+    dispatch_(pool)
 {
 }
 
@@ -87,69 +93,85 @@ bool validate_block::stopped() const
     return stop_callback_();
 }
 
-std::error_code validate_block::check_block() const
+void validate_block::check_block(handler complete)
 {
     // These are checks that are independent of the blockchain
     // that can be validated before saving an orphan block.
 
     const auto& transactions = current_block_.transactions;
-
     if (transactions.empty() || transactions.size() > max_block_size ||
-        current_block_.satoshi_size() > max_block_size)
+        current_block_.serialized_size() > max_block_size)
     {
-        return error::size_limits;
+        complete(error::size_limits);
+        return;
     }
 
     const auto& header = current_block_.header;
     const auto hash = header.hash();
-
     if (!is_valid_proof_of_work(hash, header.bits))
-        return error::proof_of_work;
+    {
+        complete(error::proof_of_work);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
+    RETURN_IF_STOPPED(complete);
     if (!is_valid_time_stamp(header.timestamp))
-        return error::futuristic_timestamp;
+    {
+        complete(error::futuristic_timestamp);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
+    RETURN_IF_STOPPED(complete);
     if (!transactions.front().is_coinbase())
-        return error::first_not_coinbase;
+    {
+        complete(error::first_not_coinbase);
+        return;
+    }
 
     for (auto it = ++transactions.begin(); it != transactions.end(); ++it)
     {
-        RETURN_IF_STOPPED();
-
-        if ((*it).is_coinbase())
-            return error::extra_coinbases;
+        RETURN_IF_STOPPED(complete);
+        if (it->is_coinbase())
+        {
+            complete(error::extra_coinbases);
+            return;
+        }
     }
 
     for (const auto& tx: transactions)
     {
-        RETURN_IF_STOPPED();
-
+        RETURN_IF_STOPPED(complete);
         const auto ec = validate_transaction::check_transaction(tx);
         if (ec)
-            return ec;
+        {
+            complete(ec);
+            return;
+        }
     }
 
-    RETURN_IF_STOPPED();
-
+    RETURN_IF_STOPPED(complete);
     if (!is_distinct_tx_set(transactions))
-        return error::duplicate;
+    {
+        complete(error::duplicate);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
+    RETURN_IF_STOPPED(complete);
     const auto sigops = legacy_sigops_count(transactions);
     if (sigops > max_block_script_sig_operations)
-        return error::too_many_sigs;
+    {
+        complete(error::too_many_sigs);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
+    RETURN_IF_STOPPED(complete);
     if (header.merkle != chain::block::generate_merkle_root(transactions))
-        return error::merkle_mismatch;
+    {
+        complete(error::merkle_mismatch);
+        return;
+    }
 
-    return error::success;
+    complete(error::success);
 }
 
 bool validate_block::is_distinct_tx_set(const chain::transaction::list& txs)
@@ -210,8 +232,8 @@ inline uint8_t decode_op_n(chain::opcode code)
     return raw_code - op_1 + 1;
 }
 
-inline size_t count_script_sigops(
-    const chain::operation::stack& operations, bool accurate)
+inline size_t count_script_sigops(const chain::operation::stack& operations,
+    bool accurate)
 {
     size_t total_sigs = 0;
     chain::opcode last_opcode = chain::opcode::bad_operation;
@@ -264,48 +286,62 @@ size_t validate_block::legacy_sigops_count(const chain::transaction::list& txs)
     return total_sigs;
 }
 
-std::error_code validate_block::accept_block() const
+void validate_block::accept_block(handler complete) 
 {
     const auto& header = current_block_.header;
     if (header.bits != work_required())
-        return error::incorrect_proof_of_work;
+    {
+        complete(error::incorrect_proof_of_work);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
+    RETURN_IF_STOPPED(complete);
     if (header.timestamp <= median_time_past())
-        return error::timestamp_too_early;
+    {
+        complete(error::timestamp_too_early);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
-    // Txs should be final when included in a block.
+    RETURN_IF_STOPPED(complete);
     for (const auto& tx: current_block_.transactions)
     {
+        // Txs should be final when included in a block.
         if (!tx.is_final(height_, header.timestamp))
-            return error::non_final_transaction;
+        {
+            complete(error::non_final_transaction);
+            return;
+        }
 
-        RETURN_IF_STOPPED();
+        RETURN_IF_STOPPED(complete);
     }
 
     // Ensure that the block passes checkpoints.
     // This is both DOS protection and performance optimization for sync.
     const auto block_hash = header.hash();
     if (!checkpoint::validate(block_hash, height_, checkpoints_))
-        return error::checkpoints_failed;
+    {
+        complete(error::checkpoints_failed);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
-    // Reject version=1 blocks after switchover point.
+    RETURN_IF_STOPPED(complete);
     if (header.version < 2 && height_ > max_version1_height)
-        return error::old_version_block;
+    {
+        // Reject version=1 blocks after switchover point.
+        complete(error::old_version_block);
+        return;
+    }
 
-    RETURN_IF_STOPPED();
-
-    // Enforce version=2 rule that coinbase starts with serialized height.
-    if (header.version >= 2 &&
+    RETURN_IF_STOPPED(complete);
+    if (header.version >= 2 && 
         !is_valid_coinbase_height(height_, current_block_))
-        return error::coinbase_height_mismatch;
+    {
+        // Enforce version=2 rule that coinbase starts with serialized height.
+        complete(error::coinbase_height_mismatch);
+        return;
+    }
 
-    return error::success;
+    complete(error::success);
 }
 
 uint32_t validate_block::work_required() const
@@ -314,7 +350,7 @@ uint32_t validate_block::work_required() const
     const auto last_non_special_bits = [this]()
     {
         // Return the last non-special block
-        chain::block_header previous_block;
+        chain::header previous_block;
         auto previous_height = height_;
 
         // Loop backwards until we find a difficulty change point,
@@ -402,86 +438,142 @@ bool validate_block::is_valid_coinbase_height(size_t height,
     return std::equal(expect.begin(), expect.end(), raw_coinbase.begin());
 }
 
-std::error_code validate_block::connect_block() const
+void validate_block::connect_block(handler complete)
 {
-    // BIP 30 security fix
-    const auto& transactions = current_block_.transactions;
-    if (height_ != bip30_exception_block1 && height_ != bip30_exception_block2)
-    {
-        ////////////// TODO: parallelize. //////////////
-        for (const auto& tx: transactions)
-        {
-            if (is_spent_duplicate(tx))
-                return error::duplicate_or_spent;
+    RETURN_IF_STOPPED(complete);
 
-            RETURN_IF_STOPPED();
-        }
+    auto next_step = dispatch_.ordered_delegate(
+        &validate_block::connect_block1, this, _1, complete);
+
+    const auto skip_bip30_rule =
+        height_ == bip30_exception_block1 ||
+        height_ == bip30_exception_block2;
+
+    if (skip_bip30_rule)
+    {
+        next_step(error::success, complete);
+        return;
     }
 
-    uint64_t fees = 0;
-    size_t total_sigops = 0;
-    const auto count = transactions.size();
-
-    ////////////// TODO: parallelize. //////////////
-    for (size_t tx_index = 0; tx_index < count; ++tx_index)
-    {
-        uint64_t value_in = 0;
-        const auto& tx = transactions[tx_index];
-
-        // It appears that this is also checked in check_block().
-        total_sigops += legacy_sigops_count(tx);
-        if (total_sigops > max_block_script_sig_operations)
-            return error::too_many_sigs;
-
-        RETURN_IF_STOPPED();
-
-        // Count sigops for tx 0, but we don't perform
-        // the other checks on coinbase tx.
-        if (tx.is_coinbase())
-            continue;
-
-        RETURN_IF_STOPPED();
-
-        // Consensus checks here.
-        if (!validate_inputs(tx, tx_index, value_in, total_sigops))
-            return error::validate_inputs_failed;
-
-        RETURN_IF_STOPPED();
-
-        if (!validate_transaction::tally_fees(tx, value_in, fees))
-            return error::fees_out_of_range;
-    }
-
-    RETURN_IF_STOPPED();
-
-    const auto& coinbase = transactions.front();
-    const auto coinbase_value = coinbase.total_output_value();
-
-    if (coinbase_value > block_value(height_) + fees)
-        return error::coinbase_too_large;
-
-    return error::success;
+    dispatch_.parallel(current_block_.transactions, "spent_tx", next_step,
+        &validate_block::check_spent_duplicate, this);
 }
 
-bool validate_block::is_spent_duplicate(const chain::transaction& tx) const
+void validate_block::connect_block1(const code& ec, handler complete)
 {
-    const auto tx_hash = tx.hash();
+    RETURN_IF_STOPPED(complete);
+    complete(error::unknown);
+}
 
-    // Is there a matching previous tx?
-    if (!transaction_exists(tx_hash))
-        return false;
+// BIP 30:
+// Blocks are not allowed to contain a transaction whose identifier matches
+// that of an earlier, not-fully-spent transaction in the same chain.
+void validate_block::check_spent_duplicate(const chain::transaction& tx,
+    handler complete)
+{
+    RETURN_IF_STOPPED(complete);
 
-    // Are all outputs spent?
-    ////////////// TODO: parallelize. //////////////
-    for (uint32_t output_index = 0; output_index < tx.outputs.size();
-        ++output_index)
+    const auto hash = tx.hash();
+    if (!transaction_exists(hash))
     {
-        if (!is_output_spent({ tx_hash, output_index }))
-            return false;
+        // There is no matching previous tx.
+        complete(error::success);
+        return;
     }
 
-    return true;
+    // Convert collection to outpoints for parallel iteration.
+    size_t index = 0;
+    std::vector<chain::output_point> points;
+    for (const auto& output: tx.outputs)
+        points.push_back({ hash, index++ });
+
+    dispatch_.parallel(points, "spent_output", complete,
+        &validate_block::check_output_spent, this);
 }
+
+void validate_block::check_output_spent(const chain::output_point& point,
+    handler complete)
+{
+    RETURN_IF_STOPPED(complete);
+
+    // If not all if its outputs are spent then a duplicate tx is not allowed.
+    const auto spent = is_output_spent(point);
+    complete(spent ? error::success : error::duplicate_or_spent);
+}
+
+////void validate_block::check_sigops_limit(const code& ec, handler complete) const
+////{
+////    RETURN_IF_STOPPED(complete);
+////
+////    if (ec)
+////    {
+////        complete(ec);
+////        return;
+////    }
+////
+////    size_t tx_index = 0;
+////    size_t total_sigops = 0;
+////    const auto& transactions = current_block_.transactions;
+////    const auto count = transactions.size();
+////
+////    ////////////// TODO: parallelize. //////////////
+////    for (const auto& tx: transactions)
+////    {
+////        ++tx_index;
+////        uint64_t value_in = 0;
+////        total_sigops += legacy_sigops_count(tx);
+////        if (total_sigops > max_block_script_sig_operations)
+////        {
+////            // It appears that this is also checked in check_block().
+////            complete(error::too_many_sigs);
+////            return;
+////        }
+////    }
+////    ////////////////////////////////////////////////
+////
+////    uint64_t fees = 0;
+////    // TODO: check fees
+////
+////    RETURN_IF_STOPPED(complete);
+////    const auto& coinbase = transactions.front();
+////    const auto coinbase_value = coinbase.total_output_value();
+////    if (coinbase_value > block_value(height_) + fees)
+////    {
+////        complete(error::validate_inputs_failed);
+////        return;
+////    }
+////
+////    complete(error::success);
+////}
+////
+////void validate_block::check_fee_tally(const code& ec, handler complete) const
+////{
+////    for (const auto& tx: transactions)
+////    {
+////        RETURN_IF_STOPPED(complete);
+////        if (!validate_transaction::tally_fees(tx, value_in, fees))
+////        {
+////            complete(error::validate_inputs_failed);
+////            return;
+////        }
+////    }
+////}
+////
+////void validate_block::check_signed_inputs(const code& ec, handler complete) const
+////{
+////    for (const auto& tx: transactions)
+////    {
+////        ++tx_index;
+////
+////        RETURN_IF_STOPPED(complete);
+////        if (!validate_inputs(tx, tx_index - 1, value_in, total_sigops))
+////        {
+////            // libbitcoin-consensus checks here.
+////            complete(error::validate_inputs_failed);
+////            return;
+////        }
+////    }
+////}
 
 bool validate_block::validate_inputs(const chain::transaction& tx,
     size_t index_in_parent, uint64_t& value_in, size_t& total_sigops) const
@@ -490,6 +582,7 @@ bool validate_block::validate_inputs(const chain::transaction& tx,
 
     ////////////// TODO: parallelize. //////////////
     for (size_t input_index = 0; input_index < tx.inputs.size(); ++input_index)
+    {
         if (!connect_input(index_in_parent, tx, input_index, value_in,
             total_sigops))
         {
@@ -498,6 +591,8 @@ bool validate_block::validate_inputs(const chain::transaction& tx,
                 << input_index << "]";
             return false;
         }
+    }
+    ////////////////////////////////////////////////
 
     return true;
 }

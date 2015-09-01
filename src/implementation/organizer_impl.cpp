@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <future>
 #include <sstream>
 #include <bitcoin/bitcoin.hpp>
 #include <bitcoin/blockchain/checkpoint.hpp>
@@ -34,7 +35,7 @@ organizer_impl::organizer_impl(threadpool& pool, db_interface& database,
     orphans_pool& orphans, simple_chain& chain,
     const config::checkpoint::list& checks)
   : organizer(pool, orphans, chain),
-    interface_(database), checkpoints_(checks)
+    pool_(pool), interface_(database), checkpoints_(checks)
 {
     // Sort checkpoints by height so that top is sure to be properly obtained.
     checkpoint::sort(checkpoints_);
@@ -54,7 +55,7 @@ bool organizer_impl::strict(size_t fork_point)
     return checkpoints_.empty() || fork_point > checkpoints_.back().height();
 }
 
-std::error_code organizer_impl::verify(size_t fork_point,
+code organizer_impl::verify(size_t fork_point,
     const block_detail_list& orphan_chain, size_t orphan_index)
 {
     if (stopped())
@@ -70,18 +71,23 @@ std::error_code organizer_impl::verify(size_t fork_point,
         return stopped();
     };
 
-    const validate_block_impl validate(interface_, fork_point, orphan_chain,
-        orphan_index, height, current_block, checkpoints_, callback);
+    validate_block_impl validate(pool_, interface_, fork_point,
+        orphan_chain, orphan_index, height, current_block, checkpoints_,
+        callback);
+
+    std::promise<code> result;
+    const auto waiter = [&result](const code& ec)
+    {
+        result.set_value(ec);
+    };
 
     // Checks that are independent of the chain.
-    auto ec = validate.check_block();
-    if (ec)
-        return ec;
+    validate.check_block(waiter);
+    auto ec = result.get_future().get();
 
     // Checks that are dependent on height and preceding blocks.
-    ec = validate.accept_block();
-    if (ec)
-        return ec;
+    validate.accept_block(waiter);
+    ec = result.get_future().get();
 
     // Start strict validation if past last checkpoint.
     if (strict(fork_point))
@@ -95,10 +101,11 @@ std::error_code organizer_impl::verify(size_t fork_point,
             << total_inputs << ") inputs";
 
         // Time this for logging.
-        const auto timed = [&ec, &validate]()
+        const auto timed = [waiter, &ec, &result, &validate]()
         {
             // Checks that include input->output traversal.
-            ec = validate.connect_block();
+            validate.connect_block(waiter);
+            ec = result.get_future().get();
         };
 
         // Execute the timed validation.

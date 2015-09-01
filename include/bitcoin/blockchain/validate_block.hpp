@@ -34,19 +34,21 @@ namespace blockchain {
 class BCB_API validate_block
 {
 public:
-    std::error_code check_block() const;
-    std::error_code accept_block() const;
-    std::error_code connect_block() const;
+    typedef std::function<void(const code& ec)> handler;
+
+    void check_block(handler complete);
+    void accept_block(handler complete);
+    void connect_block(handler complete);
 
 protected:
     typedef std::function<bool()> stopped_callback;
 
-    validate_block(size_t height, const chain::block& block,
-        const config::checkpoint::list& checks,
+    validate_block(threadpool& pool, size_t height,
+        const chain::block& block, const config::checkpoint::list& checks,
         stopped_callback stop_callback=nullptr);
 
     virtual uint64_t actual_timespan(size_t interval) const = 0;
-    virtual chain::block_header fetch_block(size_t fetch_height) const = 0;
+    virtual chain::header fetch_block(size_t fetch_height) const = 0;
     virtual bool fetch_transaction(chain::transaction& tx,
         size_t& previous_height, const hash_digest& tx_hash) const = 0;
     virtual bool is_output_spent(const chain::output_point& outpoint) const = 0;
@@ -67,7 +69,14 @@ protected:
     // These are protected virtual for testability.
     virtual boost::posix_time::ptime current_time() const;
     virtual bool stopped() const;
-    virtual bool is_spent_duplicate(const chain::transaction& tx) const;
+
+    // connect_block
+    virtual void check_spent_duplicate(const chain::transaction& tx,
+        handler complete);
+    virtual void check_output_spent(const chain::output_point& point,
+        handler complete);
+    virtual void connect_block1(const code& ec, handler complete);
+
     virtual bool is_valid_time_stamp(uint32_t timestamp) const;
     virtual uint32_t work_required() const;
 
@@ -83,6 +92,7 @@ private:
     const chain::block& current_block_;
     const config::checkpoint::list& checkpoints_;
     const stopped_callback stop_callback_;
+    dispatcher dispatch_;
 };
 
 } // namespace blockchain

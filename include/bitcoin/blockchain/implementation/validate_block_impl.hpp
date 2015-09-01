@@ -34,15 +34,15 @@ class BCB_API validate_block_impl
   : public validate_block
 {
 public:
-    validate_block_impl(db_interface& database, size_t fork_index,
-        const block_detail_list& orphan_chain, size_t orphan_index,
-        size_t height, const chain::block& block,
+    validate_block_impl(threadpool& pool, db_interface& database,
+        size_t fork_index,  const block_detail_list& orphan_chain,
+        size_t orphan_index, size_t height, const chain::block& block,
         const config::checkpoint::list& checkpoints,
         stopped_callback stopped);
 
 protected:
     uint64_t actual_timespan(size_t interval) const;
-    chain::block_header fetch_block(size_t fetch_height) const;
+    chain::header fetch_block(size_t fetch_height) const;
     bool fetch_transaction(chain::transaction& tx,
         size_t& previous_height, const hash_digest& tx_hash) const;
     uint64_t median_time_past() const;

@@ -108,7 +108,7 @@ void blockchain_impl::start_write()
 void blockchain_impl::store(const chain::block& block,
     store_block_handler handle_store)
 {
-    dispatch_.randomly_queue(
+    dispatch_.unordered(
         std::bind(&blockchain_impl::do_store,
             this, block, handle_store));
 }
@@ -151,7 +151,7 @@ void blockchain_impl::import(const chain::block& block,
         interface_.push(block);
         stop_write(handle_import, error::success);
     };
-    dispatch_.randomly_queue(do_import);
+    dispatch_.unordered(do_import);
 }
 
 void blockchain_impl::fetch(perform_read_functor perform_read)
@@ -171,7 +171,7 @@ void blockchain_impl::fetch(perform_read_functor perform_read)
     };
 
     // Initiate async read operation.
-    dispatch_.async(do_read);
+    dispatch_.concurrent(do_read);
 }
 
 void blockchain_impl::fetch_block_header(uint64_t height,
@@ -183,7 +183,7 @@ void blockchain_impl::fetch_block_header(uint64_t height,
         if (!result)
         {
             return finish_fetch(slock, handle_fetch,
-                error::not_found, chain::block_header());
+                error::not_found, chain::header());
         }
 
         return finish_fetch(slock, handle_fetch,
@@ -202,7 +202,7 @@ void blockchain_impl::fetch_block_header(const hash_digest& hash,
         if (!result)
         {
             return finish_fetch(slock, handle_fetch,
-                error::not_found, chain::block_header());
+                error::not_found, chain::header());
         }
 
         return finish_fetch(slock, handle_fetch,

@@ -37,12 +37,13 @@ public:
         const config::checkpoint::list& checks=checkpoint::defaults);
 
 protected:
-    std::error_code verify(size_t fork_point,
+    code verify(size_t fork_point,
         const block_detail_list& orphan_chain, size_t orphan_index);
 
 private:
     bool strict(size_t fork_point);
 
+    threadpool& pool_;
     db_interface& interface_;
     config::checkpoint::list checkpoints_;
 };

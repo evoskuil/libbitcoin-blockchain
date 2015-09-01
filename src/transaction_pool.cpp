@@ -87,7 +87,7 @@ bool transaction_pool::stopped()
 void transaction_pool::validate(const chain::transaction& tx,
     validate_handler handle_validate)
 {
-    dispatch_.queue(&transaction_pool::do_validate,
+    dispatch_.ordered(&transaction_pool::do_validate,
         this, tx, handle_validate);
 }
 void transaction_pool::do_validate(const chain::transaction& tx,
@@ -105,11 +105,11 @@ void transaction_pool::do_validate(const chain::transaction& tx,
         blockchain_, tx, buffer_, dispatch_);
 
     validate->start(
-        dispatch_.sync(&transaction_pool::validation_complete,
+        dispatch_.ordered_delegate(&transaction_pool::validation_complete,
             this, _1, _2, tx.hash(), handle_validate));
 }
 
-void transaction_pool::validation_complete(const std::error_code& ec,
+void transaction_pool::validation_complete(const code& ec,
     const chain::index_list& unconfirmed, const hash_digest& tx_hash,
     validate_handler handle_validate)
 {
@@ -183,7 +183,7 @@ void transaction_pool::store(const chain::transaction& tx,
     };
 
     const auto wrap_validate = [this, store_transaction, handle_validate]
-        (const std::error_code& ec, const chain::index_list& unconfirmed)
+        (const code& ec, const chain::index_list& unconfirmed)
     {
         if (!ec)
             store_transaction();
@@ -215,7 +215,7 @@ void transaction_pool::fetch(const hash_digest& transaction_hash,
         handle_fetch(error::success, it->tx);
     };
 
-    dispatch_.queue(tx_fetcher);
+    dispatch_.ordered(tx_fetcher);
 }
 
 void transaction_pool::exists(const hash_digest& transaction_hash,
@@ -232,10 +232,10 @@ void transaction_pool::exists(const hash_digest& transaction_hash,
         handle_exists(error::success, tx_exists(transaction_hash));
     };
 
-    dispatch_.queue(get_existence);
+    dispatch_.ordered(get_existence);
 }
 
-void transaction_pool::reorganize(const std::error_code& ec,
+void transaction_pool::reorganize(const code& ec,
     size_t /* fork_point */, const blockchain::block_list& new_blocks,
     const blockchain::block_list& replaced_blocks)
 {
@@ -261,11 +261,11 @@ void transaction_pool::reorganize(const std::error_code& ec,
         << ") replace blocks (" << replaced_blocks.size() << ")";
 
     if (replaced_blocks.empty())
-        dispatch_.queue(
+        dispatch_.ordered(
             std::bind(&transaction_pool::delete_confirmed,
                 this, new_blocks));
     else
-        dispatch_.queue(
+        dispatch_.ordered(
             std::bind(&transaction_pool::invalidate_pool,
                 this));
 

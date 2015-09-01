@@ -183,7 +183,7 @@ static void lazy_remove(block_detail_list& process_queue,
 }
 
 void organizer::clip_orphans(block_detail_list& orphan_chain,
-    size_t orphan_index, const std::error_code& invalid_reason)
+    size_t orphan_index, const code& invalid_reason)
 {
     // Remove from orphans pool.
     auto orphan_start = orphan_chain.begin() + orphan_index;

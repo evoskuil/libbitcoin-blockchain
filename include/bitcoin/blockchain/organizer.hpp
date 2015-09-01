@@ -65,13 +65,13 @@ public:
     bool stop();
     void subscribe_reorganize(blockchain::reorganize_handler handle_reorganize);
 
-    typedef subscriber<const std::error_code&, uint64_t, 
+    typedef subscriber<const code&, uint64_t, 
         const blockchain::block_list&, const blockchain::block_list&> 
         reorganize_subscriber;
 
 protected:
     bool stopped();
-    virtual std::error_code verify(size_t fork_index,
+    virtual code verify(size_t fork_index,
         const block_detail_list& orphan_chain, size_t orphan_index) = 0;
 
 private:
@@ -79,7 +79,7 @@ private:
     void process(block_detail_ptr process_block);
     void replace_chain(size_t fork_index, block_detail_list& orphan_chain);
     void clip_orphans(block_detail_list& orphan_chain, size_t orphan_index,
-        const std::error_code& invalid_reason);
+        const code& invalid_reason);
     void notify_reorganize(size_t fork_point,
         const block_detail_list& orphan_chain,
         const block_detail_list& replaced_chain);

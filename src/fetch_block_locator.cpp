@@ -54,7 +54,7 @@ public:
     }
 
 private:
-    bool stop_on_error(const std::error_code& ec)
+    bool stop_on_error(const code& ec)
     {
         if (stopped_)
             return true;
@@ -68,7 +68,7 @@ private:
         return false;
     }
 
-    void populate(const std::error_code& ec, size_t last_height)
+    void populate(const code& ec, size_t last_height)
     {
         if (stop_on_error(ec))
             return;
@@ -100,7 +100,7 @@ private:
                 self, _1, _2, height));
     }
 
-    void append(const std::error_code& ec, const chain::block_header& header,
+    void append(const code& ec, const chain::header& header,
         size_t /* height */)
     {
         if (stop_on_error(ec))

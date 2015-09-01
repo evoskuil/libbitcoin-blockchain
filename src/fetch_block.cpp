@@ -49,8 +49,8 @@ public:
     {
         // Keep the class in scope until this handler completes.
         const auto self = shared_from_this();
-        const auto handle_fetch_header = [self](const std::error_code& ec,
-            const chain::block_header& block_header)
+        const auto handle_fetch_header = [self](const code& ec,
+            const chain::header& block_header)
         {
             if (self->stop_on_error(ec))
                 return;
@@ -64,7 +64,7 @@ public:
     }
 
 private:
-    bool stop_on_error(const std::error_code& ec)
+    bool stop_on_error(const code& ec)
     {
         if (stopped_)
             return true;
@@ -87,7 +87,7 @@ private:
     //                shared_from_this(), _1, _2));
     //}
 
-    void fetch_transactions(const std::error_code& ec,
+    void fetch_transactions(const code& ec,
         const hash_list& tx_hashes)
     {
         if (stop_on_error(ec))
@@ -102,7 +102,7 @@ private:
 
     void fetch_tx(const hash_digest& tx_hash, size_t tx_index)
     {
-        const auto handle_fetch = [this, tx_index](const std::error_code& ec,
+        const auto handle_fetch = [this, tx_index](const code& ec,
             const chain::transaction& tx)
         {
             if (stop_on_error(ec))

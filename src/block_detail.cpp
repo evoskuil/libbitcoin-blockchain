@@ -31,7 +31,7 @@ block_detail::block_detail(const chain::block& actual_block)
 {
 }
 
-block_detail::block_detail(const chain::block_header& actual_block_header)
+block_detail::block_detail(const chain::header& actual_block_header)
   : block_detail(chain::block{ actual_block_header, {} })
 {
 }
@@ -75,12 +75,12 @@ const block_info& block_detail::info() const
     return info_;
 }
 
-void block_detail::set_error(const std::error_code& code)
+void block_detail::set_error(const code& code)
 {
     code_ = code;
 }
 
-const std::error_code& block_detail::error() const
+const code& block_detail::error() const
 {
     return code_;
 }

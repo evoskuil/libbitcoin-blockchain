@@ -83,16 +83,16 @@ typedef std::vector<stealth_row> stealth_list;
 class blockchain
 {
 public:
-    typedef std::function<void (const std::error_code&, block_info)>
+    typedef std::function<void (const code&, block_info)>
         store_block_handler;
 
-    typedef std::function<void (const std::error_code&)> import_block_handler;
+    typedef std::function<void (const code&)> import_block_handler;
 
     template <typename Message>
     using fetch_handler = std::function<
-        void (const std::error_code&, const Message&)>;
+        void (const code&, const Message&)>;
 
-    typedef fetch_handler<chain::block_header> fetch_handler_block_header;
+    typedef fetch_handler<chain::header> fetch_handler_block_header;
 
     typedef fetch_handler<hash_list> fetch_handler_block_transaction_hashes;
 
@@ -104,20 +104,20 @@ public:
 
     typedef fetch_handler<chain::transaction> fetch_handler_transaction;
 
-    typedef std::function<void (const std::error_code&, uint64_t, uint64_t)>
+    typedef std::function<void (const code&, uint64_t, uint64_t)>
         fetch_handler_transaction_index;
 
     typedef fetch_handler<chain::input_point> fetch_handler_spend;
 
-    typedef std::function<void (const std::error_code&, const history_list&)>
+    typedef std::function<void (const code&, const history_list&)>
         fetch_handler_history;
 
-    typedef std::function<void (const std::error_code&, const stealth_list&)>
+    typedef std::function<void (const code&, const stealth_list&)>
         fetch_handler_stealth;
 
     typedef std::vector<std::shared_ptr<chain::block>> block_list;
 
-    typedef std::function<void (const std::error_code&, uint64_t,
+    typedef std::function<void (const code&, uint64_t,
         const block_list&, const block_list&)> reorganize_handler;
     
     virtual ~blockchain()
@@ -146,7 +146,7 @@ public:
      * @param[in]   handle_store    Completion handler for store operation.
      * @code
      *  void handle_store(
-     *      const std::error_code& ec,   // Status of operation
+     *      const code& ec,   // Status of operation
      *      block_info info              // Status and height of block
      *  );
      * @endcode
@@ -163,7 +163,7 @@ public:
      * @param[in]   handle_import   Completion handler for import operation.
      * @code
      *  void handle_import(
-     *      const std::error_code& ec   // Status of operation
+     *      const code& ec   // Status of operation
      *  );
      * @encode
      */
@@ -177,7 +177,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,      // Status of operation
+     *      const code& ec,      // Status of operation
      *      const block_header_type& blk    // Block header
      *  );
      * @endcode
@@ -192,7 +192,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,      // Status of operation
+     *      const code& ec,      // Status of operation
      *      const block_header_type& blk    // Block header
      *  );
      * @endcode
@@ -207,7 +207,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,      // Status of operation
+     *      const code& ec,      // Status of operation
      *      const hash_list& hashes  // List of hashes
      *  );
      * @endcode
@@ -223,7 +223,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec, // Status of operation
+     *      const code& ec, // Status of operation
      *      uint64_t block_height      // Height of block
      *  );
      * @endcode
@@ -237,7 +237,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec, // Status of operation
+     *      const code& ec, // Status of operation
      *      uint64_t block_height      // Height of last block
      *  );
      * @endcode
@@ -252,7 +252,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,  // Status of operation
+     *      const code& ec,  // Status of operation
      *      const transaction_type& tx  // Transaction
      *  );
      * @endcode
@@ -268,7 +268,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec, // Status of operation
+     *      const code& ec, // Status of operation
      *      uint64_t block_height,     // Height of block containing
      *                                 // the transaction.
      *      uint64_t index             // Index of transaction within
@@ -290,7 +290,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,      // Status of operation
+     *      const code& ec,      // Status of operation
      *      const input_point& inpoint      // Spend of output
      *  );
      * @endcode
@@ -335,7 +335,7 @@ public:
      * @param[in]   handle_fetch    Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,              // Status of operation
+     *      const code& ec,              // Status of operation
      *      const history_list& history // History
      *  );
      * @endcode
@@ -375,7 +375,7 @@ public:
      *
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,                   // Status of operation
+     *      const code& ec,                   // Status of operation
      *      const blockchain::stealth_list& stealth_rows // Stealth result rows
      *  );
      * @endcode
@@ -394,7 +394,7 @@ public:
      * @param[in]   handle_reorganize   Notification handler for changes
      * @code
      *  void handle_reorganize(
-     *      const std::error_code& ec,   // Status of operation
+     *      const code& ec,   // Status of operation
      *      uint64_t fork_point,         // Index where blockchain forks
      *      const block_list& added,     // New blocks added to blockchain
      *      const block_list& removed    // Blocks removed (empty if none)

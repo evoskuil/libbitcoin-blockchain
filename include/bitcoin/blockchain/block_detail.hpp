@@ -36,7 +36,7 @@ class BCB_API block_detail
 public:
 
     block_detail(const chain::block& actual_block);
-    block_detail(const chain::block_header& actual_block_header);
+    block_detail(const chain::header& actual_block_header);
     chain::block& actual();
     const chain::block& actual() const;
     std::shared_ptr<chain::block> actual_ptr() const;
@@ -45,8 +45,8 @@ public:
     const hash_digest& hash() const;
     void set_info(const block_info& replace_info);
     const block_info& info() const;
-    void set_error(const std::error_code& code);
-    const std::error_code& error() const;
+    void set_error(const code& code);
+    const code& error() const;
 
 private:
 
@@ -54,7 +54,7 @@ private:
     const hash_digest block_hash_;
     bool processed_;
     block_info info_;
-    std::error_code code_;
+    code code_;
 };
 
 // TODO: define in block_detail (compat break).

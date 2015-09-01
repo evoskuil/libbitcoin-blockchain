@@ -32,7 +32,7 @@ namespace blockchain {
 
 struct BCB_API transaction_entry_info
 {
-    typedef std::function<void (const std::error_code&)> confirm_handler;
+    typedef std::function<void (const code&)> confirm_handler;
     hash_digest hash;
     chain::transaction tx;
     confirm_handler handle_confirm;
@@ -65,11 +65,11 @@ typedef boost::circular_buffer<transaction_entry_info> pool_buffer;
 class BCB_API transaction_pool
 {
 public:
-    typedef std::function<void (const std::error_code&,
+    typedef std::function<void (const code&,
         const chain::index_list&)> validate_handler;
-    typedef std::function<void (const std::error_code&,
+    typedef std::function<void (const code&,
         const chain::transaction&)> fetch_handler;
-    typedef std::function<void (const std::error_code&, bool)> exists_handler;
+    typedef std::function<void (const code&, bool)> exists_handler;
     typedef transaction_entry_info::confirm_handler confirm_handler;
 
     transaction_pool(threadpool& pool, blockchain& chain,
@@ -114,14 +114,14 @@ public:
      *                                  becomes confirmed.
      * @code
      *  void handle_confirm(
-     *      const std::error_code& ec    // Status of operation
+     *      const code& ec    // Status of operation
      *  );
      * @endcode
      * @param[in]   handle_validate     Completion handler for
      *                                  validate operation.
      * @code
      *  void handle_validate(
-     *      const std::error_code& ec,      // Status of operation
+     *      const code& ec,      // Status of operation
      *      const index_list& unconfirmed   // Unconfirmed input indexes
      *  );
      * @endcode
@@ -148,14 +148,14 @@ public:
      *                                  becomes confirmed.
      * @code
      *  void handle_confirm(
-     *      const std::error_code& ec    // Status of operation
+     *      const code& ec    // Status of operation
      *  );
      * @endcode
      * @param[in]   handle_validate     Completion handler for
      *                                  validate and store operation.
      * @code
      *  void handle_validate(
-     *      const std::error_code& ec,      // Status of operation
+     *      const code& ec,      // Status of operation
      *      const index_list& unconfirmed   // Unconfirmed input indexes
      *  );
      * @endcode
@@ -170,7 +170,7 @@ public:
      * @param[in]   handle_fetch      Completion handler for fetch operation.
      * @code
      *  void handle_fetch(
-     *      const std::error_code& ec,  // Status of operation
+     *      const code& ec,  // Status of operation
      *      const transaction_type& tx  // Transaction
      *  );
      * @endcode
@@ -197,13 +197,13 @@ private:
 
     void do_validate(const chain::transaction& tx,
         validate_handler handle_validate);
-    void validation_complete(const std::error_code& ec, 
+    void validation_complete(const code& ec, 
         const chain::index_list& unconfirmed, const hash_digest& hash,
         validate_handler handle_validate);
 
     bool tx_exists(const hash_digest& tx_hash);
     pool_buffer::const_iterator tx_find(const hash_digest& hash);
-    void reorganize(const std::error_code& ec, size_t fork_point,
+    void reorganize(const code& ec, size_t fork_point,
         const blockchain::block_list& new_blocks,
         const blockchain::block_list& replaced_blocks);
 

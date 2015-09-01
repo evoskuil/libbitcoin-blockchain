@@ -30,7 +30,7 @@ namespace libbitcoin {
 namespace blockchain {
     
 // TODO: rename to block_fetch_handler (interface break).
-typedef std::function<void (const std::error_code&, const chain::block&)>
+typedef std::function<void (const code&, const chain::block&)>
     blockchain_fetch_handler_block;
 
 /**
@@ -43,7 +43,7 @@ typedef std::function<void (const std::error_code&, const chain::block&)>
  * @param[in]   handle_fetch    Completion handler for fetch operation.
  * @code
  *  void handle_fetch(
- *      const std::error_code& ec,  // Status of operation
+ *      const code& ec,  // Status of operation
  *      const block_type& blk       // Block header
  *  );
  * @endcode
@@ -61,7 +61,7 @@ BCB_API void fetch_block(blockchain& chain, uint64_t height,
  * @param[in]   handle_fetch    Completion handler for fetch operation.
  * @code
  *  void handle_fetch(
- *      const std::error_code& ec,  // Status of operation
+ *      const code& ec,  // Status of operation
  *      const block_type& blk       // Block header
  *  );
  * @endcode

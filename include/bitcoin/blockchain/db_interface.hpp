@@ -78,22 +78,17 @@ public:
     stealth_database stealth;
 
 private:
-    void push_inputs(
-        const hash_digest& tx_hash, const size_t block_height,
-        const chain::transaction_input::list& inputs);
-    void push_outputs(
-        const hash_digest& tx_hash, const size_t block_height,
-        const chain::transaction_output::list& outputs);
-    void push_stealth_outputs(
-        const hash_digest& tx_hash,
-        const chain::transaction_output::list& outputs);
+    void push_inputs(const hash_digest& tx_hash, const size_t block_height,
+        const chain::input::list& inputs);
+    void push_outputs(const hash_digest& tx_hash, const size_t block_height,
+        const chain::output::list& outputs);
+    void push_stealth_outputs(const hash_digest& tx_hash,
+        const chain::output::list& outputs);
 
-    void pop_inputs(
-        const size_t block_height,
-        const chain::transaction_input::list& inputs);
-    void pop_outputs(
-        const size_t block_height,
-        const chain::transaction_output::list& outputs);
+    void pop_inputs(const size_t block_height,
+        const chain::input::list& inputs);
+    void pop_outputs(const size_t block_height,
+        const chain::output::list& outputs);
 
     const db_active_heights active_heights_;
 };

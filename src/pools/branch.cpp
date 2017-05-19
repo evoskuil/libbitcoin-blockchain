@@ -134,7 +134,7 @@ uint256_t branch::work() const
 
     // Not using accumulator here avoids repeated copying of uint256 object.
     for (auto block: *blocks_)
-        total += block->proof();
+        total += block->header().proof();
 
     return total;
 }

@@ -29,9 +29,8 @@
 #include <bitcoin/blockchain/organizers/block_organizer.hpp>
 #include <bitcoin/blockchain/organizers/header_organizer.hpp>
 #include <bitcoin/blockchain/organizers/transaction_organizer.hpp>
-#include <bitcoin/blockchain/pools/block_entry.hpp>
-#include <bitcoin/blockchain/pools/block_pool.hpp>
-#include <bitcoin/blockchain/pools/branch.hpp>
+#include <bitcoin/blockchain/pools/header_branch.hpp>
+#include <bitcoin/blockchain/pools/header_entry.hpp>
 #include <bitcoin/blockchain/pools/header_pool.hpp>
 #include <bitcoin/blockchain/pools/transaction_entry.hpp>
 #include <bitcoin/blockchain/pools/transaction_pool.hpp>

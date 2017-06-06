@@ -90,7 +90,7 @@ code validate_input::convert_result(verify_result_type result)
         case verify_result_type::verify_result_unbalanced_conditional:
             return error::invalid_script;
 
-        // Softbranch safeness (should not see).
+        // Softfork safeness (should not see).
         case verify_result_type::verify_result_discourage_upgradable_nops:
             return error::operation_failed;
 

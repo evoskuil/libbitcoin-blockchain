@@ -406,7 +406,7 @@ handle_custom_options()
         exit 1
     fi
 
-    BASE_PRESET_ID=${PRESET_ID/%-with*_*/}
+    BASE_PRESET_ID="$PRESET_ID"
     REPO_PRESET[libbitcoin-blockchain]="$PRESET_ID"
     display_message "REPO_PRESET[libbitcoin-blockchain]=${REPO_PRESET[libbitcoin-blockchain]}"
     REPO_PRESET[libbitcoin-consensus]="$BASE_PRESET_ID"
